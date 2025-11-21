@@ -1,13 +1,21 @@
 {
   "productName": "weekly",
   "bundle": {
-    "icon": ["png/weekly_512.png"],
+    "icon": [
+      "png/weekly_512.png"
+    ],
     "active": true,
     "linux": {
       "deb": {
-        "depends": ["curl", "wget"]
+        "depends": [
+          "curl",
+          "wget"
+        ]
       }
     },
-    "targets": ["deb", "appimage"]
+    "targets": [
+      "deb",
+      "appimage"
+    ]
   }
 }

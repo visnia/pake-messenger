@@ -1,4 +1,4 @@
-window.addEventListener('DOMContentLoaded', (_event) => { document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => {
   // 1. Poproś o uprawnienia do powiadomień od razu po starcie (wymagane w WebView)
   if (Notification.permission !== "granted") {
     Notification.requestPermission();
@@ -37,4 +37,3 @@ window.addEventListener('DOMContentLoaded', (_event) => { document.addEventListe
     console.log('[Pake Injection] Messenger Title Watcher active.');
   }
 });
- });
