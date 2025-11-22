@@ -3,6 +3,8 @@ console.log('[Pake Injection] custom.js loaded');
 document.addEventListener('DOMContentLoaded', () => {
   console.log('[Pake Injection] DOMContentLoaded fired');
 
+  const { invoke } = window.__TAURI__.core;
+
   // 1. Request permissions immediately
   if (Notification.permission !== "granted") {
     console.log('[Pake Injection] Requesting notification permission...');
@@ -15,6 +17,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let lastTitle = document.title;
   let currentUnreadCount = 0;
+
+  const updateBadge = (count) => {
+    console.log(`[Pake Injection] Updating badge to: ${count}`);
+    invoke('update_badge', { count: count }).catch(err => {
+      console.error('[Pake Injection] Failed to update badge:', err);
+    });
+  };
+
+  // Clear badge on focus
+  window.addEventListener('focus', () => {
+    console.log('[Pake Injection] Window focused, clearing badge');
+    updateBadge(0);
+  });
+
+  // Restore badge on blur (if there are unread messages)
+  window.addEventListener('blur', () => {
+    console.log(`[Pake Injection] Window blurred, restoring badge: ${currentUnreadCount}`);
+    updateBadge(currentUnreadCount);
+  });
 
   const initObserver = () => {
     const targetNode = document.querySelector('title');
@@ -39,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (currentTitle === 'Messenger') {
         console.log('[Pake Injection] Resetting unread count to 0');
         currentUnreadCount = 0;
+        updateBadge(0);
         lastTitle = currentTitle;
         return;
       }
@@ -68,6 +90,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Update count regardless (e.g. if count decreased, we still want to track it)
         currentUnreadCount = newCount;
+
+        // Only update badge if window is not focused (or update it anyway and let focus handler clear it immediately? 
+        // Better to update it so it's ready for blur, but if focused, we might want to keep it clear.
+        // Actually, if user is in the window but looking at another chat, the title might update.
+        // But usually "focus" means the window is active. 
+        // Let's check document.hasFocus()
+        if (!document.hasFocus()) {
+          updateBadge(currentUnreadCount);
+        }
       }
 
       lastTitle = currentTitle;
