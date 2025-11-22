@@ -1,6 +1,10 @@
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 mod app;
+mod state;
 mod util;
+
+use state::AppState;
+use app::settings::AppSettings;
 
 use tauri::Manager;
 use tauri_plugin_window_state::Builder as WindowStatePlugin;
@@ -44,6 +48,12 @@ pub fn run_app() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init());
 
+    app_builder = app_builder.manage(AppState {
+        settings: std::sync::Mutex::new(AppSettings {
+            run_in_background: false,
+        }),
+    });
+
     // Only add single instance plugin if multiple instances are not allowed
     if !multi_instance {
         app_builder = app_builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -63,6 +73,9 @@ pub fn run_app() {
             update_badge,
         ])
         .setup(move |app| {
+            let settings = AppSettings::load(app.app_handle(), hide_on_close);
+            *app.state::<AppState>().settings.lock().unwrap() = settings;
+
             let window = set_window(app, &pake_config, &tauri_config);
             set_system_tray(
                 app.app_handle(),
@@ -86,25 +99,29 @@ pub fn run_app() {
         })
         .on_window_event(move |_window, _event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = _event {
-                if hide_on_close {
-                    // Hide window when hide_on_close is enabled (regardless of tray status)
                     let window = _window.clone();
-                    tauri::async_runtime::spawn(async move {
-                        #[cfg(target_os = "macos")]
-                        {
-                            if window.is_fullscreen().unwrap_or(false) {
-                                window.set_fullscreen(false).unwrap();
-                                tokio::time::sleep(Duration::from_millis(900)).await;
+                    let app_handle = window.app_handle();
+                    let state = app_handle.state::<AppState>();
+                    let run_in_background = state.settings.lock().unwrap().run_in_background;
+
+                    if run_in_background {
+                        // Hide window when run_in_background is true
+                        tauri::async_runtime::spawn(async move {
+                            #[cfg(target_os = "macos")]
+                            {
+                                if window.is_fullscreen().unwrap_or(false) {
+                                    window.set_fullscreen(false).unwrap();
+                                    tokio::time::sleep(Duration::from_millis(900)).await;
+                                }
                             }
-                        }
-                        window.minimize().unwrap();
-                        window.hide().unwrap();
-                    });
-                    api.prevent_close();
-                } else {
-                    // Exit app completely when hide_on_close is false
-                    std::process::exit(0);
-                }
+                            window.minimize().unwrap();
+                            window.hide().unwrap();
+                        });
+                        api.prevent_close();
+                    } else {
+                        // Exit app completely when run_in_background is false
+                        std::process::exit(0);
+                    }
             }
         })
         .run(tauri::generate_context!())

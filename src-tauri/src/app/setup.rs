@@ -8,6 +8,7 @@ use tauri::{
 };
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 use tauri_plugin_window_state::{AppHandleExt, StateFlags};
+use crate::state::AppState;
 
 pub fn set_system_tray(
     app: &AppHandle,
@@ -23,8 +24,15 @@ pub fn set_system_tray(
     let show_app = MenuItemBuilder::with_id("show_app", "Show").build(app)?;
     let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
 
+    let state = app.state::<AppState>();
+    let run_in_background_state = state.settings.lock().unwrap().run_in_background;
+
+    let run_in_background = tauri::menu::CheckMenuItemBuilder::with_id("run_in_background", "Run in background")
+        .checked(run_in_background_state)
+        .build(app)?;
+
     let menu = MenuBuilder::new(app)
-        .items(&[&hide_app, &show_app, &quit])
+        .items(&[&hide_app, &show_app, &run_in_background, &quit])
         .build()?;
 
     app.app_handle().remove_tray_by_id("pake-tray");
@@ -46,19 +54,20 @@ pub fn set_system_tray(
                 app.save_window_state(StateFlags::all()).unwrap();
                 std::process::exit(0);
             }
+            "run_in_background" => {
+                let state = app.state::<AppState>();
+                let mut settings = state.settings.lock().unwrap();
+                settings.run_in_background = !settings.run_in_background;
+                settings.save(app).unwrap();
+            }
             _ => (),
         })
         .on_tray_icon_event(|tray, event| match event {
             TrayIconEvent::Click { button, .. } => {
                 if button == tauri::tray::MouseButton::Left {
                     if let Some(window) = tray.app_handle().get_webview_window("pake") {
-                        let is_visible = window.is_visible().unwrap_or(false);
-                        if is_visible {
-                            window.hide().unwrap();
-                        } else {
-                            window.show().unwrap();
-                            window.set_focus().unwrap();
-                        }
+                        window.show().unwrap();
+                        window.set_focus().unwrap();
                     }
                 }
             }
