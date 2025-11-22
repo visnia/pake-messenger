@@ -1,33 +1,52 @@
+console.log('[Pake Injection] custom.js loaded');
+
 document.addEventListener('DOMContentLoaded', () => {
-  // 1. Poproś o uprawnienia do powiadomień od razu po starcie (wymagane w WebView)
+  console.log('[Pake Injection] DOMContentLoaded fired');
+  
+  // 1. Request permissions immediately
   if (Notification.permission !== "granted") {
-    Notification.requestPermission();
+    console.log('[Pake Injection] Requesting notification permission...');
+    Notification.requestPermission().then(permission => {
+      console.log('[Pake Injection] Permission result:', permission);
+    });
+  } else {
+    console.log('[Pake Injection] Notification permission already granted');
   }
 
   let lastTitle = document.title;
-  const targetNode = document.querySelector('title');
+  
+  const initObserver = () => {
+    const targetNode = document.querySelector('title');
+    if (!targetNode) {
+        console.log('[Pake Injection] <title> element not found, retrying in 1s...');
+        setTimeout(initObserver, 1000);
+        return;
+    }
 
-  // 2. Logika obserwatora (MutationObserver)
-  if (targetNode) {
+    console.log('[Pake Injection] <title> element found, starting observer');
+
+    // 2. Observer logic
     const observer = new MutationObserver((mutations) => {
       const currentTitle = document.title;
+      console.log('[Pake Injection] Title changed to:', currentTitle);
 
-      // Ignorujemy te same tytuły lub domyślny "Messenger"
+      // Ignore same titles or default "Messenger"
       if (currentTitle === lastTitle || currentTitle === 'Messenger') return;
 
-      // Wykrywamy wzorzec (X) na początku tytułu
+      // Detect pattern (X) at start of title
       if (/^\(\d+\)/.test(currentTitle)) {
+        console.log('[Pake Injection] New message detected!');
         
-        // 3. Wywołanie standardowego API, które Tauri zamieni na Windows Toast
+        // 3. Trigger notification
         const cleanText = currentTitle.replace(/^\(\d+\)\s*/, '');
         const notif = new Notification("Nowa wiadomość", {
           body: cleanText,
-          silent: false, // Dźwięk systemowy Windows
+          silent: false,
           icon: 'https://static.xx.fbcdn.net/rsrc.php/yv/r/B8nx2qW2beo.ico'
         });
 
         notif.onclick = () => {
-          window.focus(); // Próba przywrócenia okna Pake
+          window.focus();
         };
       }
       lastTitle = currentTitle;
@@ -35,5 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     observer.observe(targetNode, { characterData: true, childList: true, subtree: true });
     console.log('[Pake Injection] Messenger Title Watcher active.');
-  }
+  };
+
+  initObserver();
 });

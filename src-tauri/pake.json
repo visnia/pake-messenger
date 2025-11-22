@@ -32,7 +32,9 @@
     "windows": true
   },
   "system_tray_path": "icons/messenger.png",
-  "inject": [],
+  "inject": [
+    "inject/custom.js"
+  ],
   "proxy_url": "",
   "multi_instance": false
 }
